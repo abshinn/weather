@@ -52,6 +52,7 @@ class Weather:
     def __str__(self):
         return unicode(self).encode("utf-8")
 
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         zipcode = int(sys.argv[1])
