@@ -5,6 +5,7 @@ import sys
 import re
 import urllib
 
+
 class Weather:
     """weather.gov html scrubber"""
 
@@ -14,7 +15,7 @@ class Weather:
     _forecastpat = re.compile(r'<div class="one-ninth-first">[\t\n\r ]+' \
        r'<p class="txt-ctr-caps">(\w+)[<br>]+(\w+)?</p>[\t\n\r ]+' \
        r'<p><img src="[\w/.]+" width="\d+" height="\d+" alt="[\w ]+" ' \
-       r'title="([\w ]+)" /></p>[\t\n\r ]+' \
+       r'title="([\w ]+)" class="period-icon" /></p>[\t\n\r ]+' \
        r'<p>[\w</>]+</p>[\t\n\r ]+' \
        r'<p class="point-forecast-icons-\w+">(\w+: \d+) &deg;F</p>[\t\n\r ]+</div>', re.I)
 
@@ -43,14 +44,7 @@ class Weather:
         forecast_str = u"{self.zipcode}: {self.loc}\n".format(self=self)
         forecast_str += u"Current Temperature: {}, {}\n".format(self.temps[0], self.temps[1])
         for forecast in self.forecast:
-            forelist = list(forecast)
-            if "" in forelist:
-                forelist.remove("")
-            else:
-                forelist[0] = " ".join(forelist[0:2])
-                forelist.remove(forelist[1])
-            forelist[0] = forelist[0].ljust(15)
-            forecast_str += " ".join(forelist) + "\n"
+            forecast_str += "{:>10} {:<5} {:<10} {:>8}\n".format(*forecast)
         return forecast_str
 
     def __str__(self):
