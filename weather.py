@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7 -tt
-"""fun with weather.gov"""
+""" regex fun with weather.gov """
 
 import sys
 import re
@@ -7,17 +7,19 @@ import urllib
 
 
 class Weather:
-    """weather.gov html scrubber"""
+    """ weather.gov html scrubber """
 
-    _locationpat = re.compile(r'<p class="current-conditions-location">([\w() ]+)</p>') 
-    _temppattern = re.compile(r'<p class="myforecast-current-lrg">(\d+&deg;F)</p>' \
-       r'<p><span class="myforecast-current-sm">(\d+&deg;C)</span></p>')
-    _forecastpat = re.compile(r'<div class="one-ninth-first">[\t\n\r ]+' \
-       r'<p class="txt-ctr-caps">(\w+)[<br>]+(\w+)?</p>[\t\n\r ]+' \
-       r'<p><img src="[\w/.]+" width="\d+" height="\d+" alt="[\w ]+" ' \
-       r'title="([\w ]+)" class="period-icon" /></p>[\t\n\r ]+' \
-       r'<p>[\w</>]+</p>[\t\n\r ]+' \
-       r'<p class="point-forecast-icons-\w+">(\w+: \d+) &deg;F</p>[\t\n\r ]+</div>', re.I)
+    _location = re.compile(r'<b>Current conditions at</b>[\t\n\r ]+' \
+       r'<h2 class="panel-title">[\t\n\r ]+([\w() ]+)[\t\n\r ]+</h2>') 
+    _current = re.compile(r'<p class="myforecast-current-lrg">(\d+&deg;F)</p>' \
+       r'[\t\n\r ]+<p class="myforecast-current-sm">(\d+&deg;C)</p>')
+
+    _day = re.compile(r'<li class="forecast-tombstone"><div>' \
+       r'<p class="txt-ctr-caps">(\w+)[<br>]+(\w+)?</p>', re.I)
+    _condition = re.compile( r'<p><img src="[\w/.]+" alt="[\w ]+" title="([\w ]+)"' \
+       r' class="forecast-icon"></p>', re.I)
+    _temp = re.compile(r'<p>[\w</>]+<br></p>' \
+       r'<p class="point-forecast-icons-[\w]+">(\w+: \d+) &deg;F</p></div></li>', re.I)
 
     def __init__(self, zipcode = 94110):
         self.zipcode = zipcode
@@ -32,19 +34,47 @@ class Weather:
             return
         contents = str(webpage.read())
         webpage.close()
-        temp = self.__class__._temppattern.findall(contents)
-        fore = self.__class__._forecastpat.findall(contents)
-        loc  = self.__class__._locationpat.findall(contents)[0]
-    
-        self.temps = [re.sub(r"&deg;", r"\u00b0", tstr).decode("unicode-escape") for tstr in temp[0]]
-        self.forecast = fore
-        self.loc = loc
+
+        location = self.__class__._location.findall(contents)
+        current = self.__class__._current.findall(contents)
+        days = self.__class__._day.findall(contents)
+        conditions = self.__class__._condition.findall(contents)
+        temps = self.__class__._temp.findall(contents)
+
+        if len(location) == 0:
+            raise Exception('regex fail: location')
+        else:
+            location = location[0]
+
+        if len(current) == 0:
+            raise Exception('regex fail: current temp')
+        else: 
+            current = [re.sub(r"&deg;", r"\u00b0", temp).decode("unicode-escape")
+                       for temp in current[0]]
+
+        if len(days) == 0:
+            raise Exception('regex fail: 7-day title')
+        else:
+            days = [' '.join(day).strip() for day in days]
+
+        if len(conditions) == 0:
+            raise Exception('regex fail: 7-day conditions')
+
+        if len(temps) == 0:
+            raise Exception('regex fail: 7-day temperatures')
+
+        if len(days) != len(conditions) != len(temps):
+            raise Exception('regex issue: days != conditions != temps')
+
+        self.location = location
+        self.F, self.C = current
+        self.forecast = zip(days, temps, conditions)
 
     def __unicode__(self):
-        forecast_str = u"{self.zipcode}: {self.loc}\n".format(self=self)
-        forecast_str += u"Current Temperature: {}, {}\n".format(self.temps[0], self.temps[1])
+        forecast_str = u"\n{self.zipcode}: {self.location}\n".format(self=self)
+        forecast_str += u"Current Temperature: {self.F}, {self.C}\n".format(self=self)
         for forecast in self.forecast:
-            forecast_str += "{:>10} {:<5} {:<10} {:>8}\n".format(*forecast)
+            forecast_str += "{:>15}  {:>8}  {:<15}\n".format(*forecast)
         return forecast_str
 
     def __str__(self):
